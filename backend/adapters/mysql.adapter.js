@@ -11,4 +11,7 @@ async function createMysqlBackup(database, backupPath) {
 backupPath
 );
 }
-module.exports = createMysqlBackup;
+module.exports = {
+    createBackup: createMysqlBackup,
+    extension: '.sql'
+};

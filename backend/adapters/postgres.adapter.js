@@ -43,4 +43,7 @@ async function createPostgresBackup(database, backupPath) {
         runBackup();
     });
 }
-module.exports = createPostgresBackup;
+module.exports = {
+    createBackup: createPostgresBackup,
+    extension: '.sql'
+};

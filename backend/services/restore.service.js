@@ -4,6 +4,7 @@ const fs = require('fs');
 const {exec} = require('child_process');
 const createLog = require('../utils/log');
 const {downloadFromB2} = require('./b2Storage.service');
+const adapters = require('../adapters/mapping');
 
 async function restoreBackup(backupId, targetDatabase) {
     const backupResult = await pool.query(
@@ -52,6 +53,15 @@ async function restoreBackup(backupId, targetDatabase) {
 
         output.on('finish', resolve);
     });
+    if (database.db_type === 'mongodb') {
+        const adapter = adapters[database.db_type];
+
+        await adapter.restoreBackup(
+            database,
+            `backups/${restoreFile}`,
+            targetDatabase
+        );
+    }
     if (database.db_type === 'postgresql') {
             const command = `"C:\\Program Files\\PostgreSQL\\14\\pgAdmin 4\\runtime\\psql.exe" -U ${database.username} -h ${database.host} -p ${database.port} -d restore_test -f "backups/${restoreFile}"`;
 

@@ -7,7 +7,7 @@ const createLog = require('../utils/log');
 const verifyBackup = require('../utils/verifyBackup');
 const cleanupBackups = require('../utils/cleanupBackups');
 const sendEmail = require('./email.service');
-const adapters = require('../adapters/mapping_pg_mysql');
+const adapters = require('../adapters/mapping');
 
 const MAX_RETRIES =3;
 
@@ -23,21 +23,20 @@ async function createBackup(databaseId) {
 
   const database = result.rows[0];
   const backupDir = path.resolve(process.cwd(), 'backups');
-  fs.mkdirSync(backupDir, { recursive: true });
+  fs.mkdirSync(backupDir, {recursive: true});
 
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const backupFile = `backup-${database.id}-${timestamp}.sql`;
+  const adapter = adapters[database.db_type];
+  if(!adapter) {
+    throw new Error(`Unsupported database type: ${database.db_type}`);
+  }
+  const backupFile = `backup-${database.id}-${timestamp}${adapter.extension}`;
   const compressedFile = `${backupFile}.gz`;
   const backupPath = path.join(backupDir, backupFile);
   const compressedPath = path.join(backupDir, compressedFile);
 
   await createLog(database.id, 'backup', 'started', 'Backup started');
-
-  const createDatabaseBackup = adapters[database.db_type];
-  if (!createDatabaseBackup) {
-    throw new Error(`Unsupported database type: ${database.db_type}`);
-  }
-  await createDatabaseBackup(database, backupPath);
+  await adapter.createBackup(database, backupPath);
 
   return new Promise((resolve, reject) => {
 
