@@ -2,17 +2,14 @@ const pool = require('../database');
 const zlib = require('zlib');
 const fs = require('fs');
 const path = require('path');
-const {execFile} = require('child_process');
 const {uploadToB2} = require('./b2Storage.service');
 const createLog = require('../utils/log');
 const verifyBackup = require('../utils/verifyBackup');
 const cleanupBackups = require('../utils/cleanupBackups');
-const createMySQLBackup = require('./mysqlBackup.service');
 const sendEmail = require('./email.service');
+const adapters = require('../adapters/mapping_pg_mysql');
 
-const MAX_RETRIES = 3;
-const PG_DUMP_PATH =
-  'C:\\Program Files\\PostgreSQL\\14\\pgAdmin 4\\runtime\\pg_dump.exe';
+const MAX_RETRIES =3;
 
 async function createBackup(databaseId) {
   const result = await pool.query(
@@ -36,39 +33,13 @@ async function createBackup(databaseId) {
 
   await createLog(database.id, 'backup', 'started', 'Backup started');
 
-  let env = process.env;
-  let pgDumpArgs;
-
-  if (database.db_type === 'mysql') {
-    await createMySQLBackup(
-      {
-        host: database.host,
-        port: database.port,
-        user: database.username,
-        password: database.password,
-        database: database.database_name
-      },
-      backupPath
-    );
-  } else if (database.db_type === 'postgresql') {
-    env = {
-      ...process.env,
-      PGPASSWORD: database.password
-    };
-
-    pgDumpArgs = [
-      '-U', database.username,
-      '-h', database.host,
-      '-p', String(database.port),
-      '-d', database.database_name,
-      '-f', backupPath
-    ];
-  } else {
+  const createDatabaseBackup = adapters[database.db_type];
+  if (!createDatabaseBackup) {
     throw new Error(`Unsupported database type: ${database.db_type}`);
   }
+  await createDatabaseBackup(database, backupPath);
 
   return new Promise((resolve, reject) => {
-    let retryCount = 0;
 
     function continueBackup() {
       const input = fs.createReadStream(backupPath);
@@ -197,33 +168,7 @@ Reason: ${error.message}`
         }
       });
     }
-
-    function runBackup() {
-      if (database.db_type === 'mysql') {
-        continueBackup();
-        return;
-      }
-
-      execFile(PG_DUMP_PATH, pgDumpArgs, { env }, async (error, stdout, stderr) => {
-        if (error) {
-          retryCount += 1;
-          console.error(`Backup attempt ${retryCount} failed`);
-          console.error('ERROR:', error);
-          console.error('STDERR:', stderr);
-
-          if (retryCount < MAX_RETRIES) {
-            return runBackup();
-          }
-
-          await createLog(database.id, 'backup', 'failed', 'Backup failed');
-          return reject(new Error('Backup failed after maximum retries'));
-        }
-
-        continueBackup();
-      });
-    }
-
-    runBackup();
+    continueBackup()
   });
 }
 
