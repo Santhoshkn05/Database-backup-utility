@@ -49,7 +49,7 @@ router.post('/databases/:id/test', authenticateToken, async (req, res) => {
             'SELECT * FROM databases WHERE id = $1 AND user_id = $2',
             [databaseId, req.user.userId]
         );
-        
+
         if (result.rows.length === 0) {
             return res.status(404).json ({
                 error: "Database not found"
@@ -76,4 +76,20 @@ router.post('/databases/:id/test', authenticateToken, async (req, res) => {
         });
     }
 }); 
+
+router.get('/databases', authenticateToken, async(req, res) => {
+    try {
+        const result = await pool.query(
+            `SELECT id, name, db_type, host, port, database_name, username
+            FROM databases WHERE user_id = $1 ORDER BY id DESC`,
+            [req.user.userId]
+        );
+        return res.status(200).json(result.rows);
+    } catch (error) {
+        console.error("Failed to Fetch databases: ", error);
+        return res.status(500).json({
+            error: "Failed to fetch databases"
+        });
+    }
+});
 module.exports = router;
