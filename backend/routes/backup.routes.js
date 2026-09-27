@@ -3,10 +3,20 @@ const pool = require('../database');
 const router = express.Router();
 const createBackup = require('../services/backup.service');
 const restoreBackup = require('../services/restore.service');
+const authenticateToken = require('../middleware/auth.middleware');
 
-router.post('/databases/:id/backup', async(req, res) => {
+router.post('/databases/:id/backup', authenticateToken, async(req, res) => {
     const databaseId = req.params.id;
     try {
+        const databaseResult = await pool.query(
+            'SELECT id FROM databases WHERE id = $1 AND user_id = $2',
+            [databaseId, req.user.userId]
+        );
+        if (databaseResult.rows.length === 0) {
+            return res.status(404).json({
+                error: "Database not found"
+            });
+        }
         const result = await createBackup(databaseId);
         res.status(201).json({
             message: "backup created successsfully",
@@ -21,9 +31,18 @@ router.post('/databases/:id/backup', async(req, res) => {
     }
 });
 
-router.get('/databases/:id/backups', async (req, res) => {
+router.get('/databases/:id/backups', authenticateToken, async (req, res) => {
     const databaseId = req.params.id;
     try {
+        const databaseResult = await pool.query(
+            'SELECT id FROM databases WHERE id=$1 AND USER_ID = $2',
+            [databaseId, req.user.userId]
+        );
+        if (databaseResult.rows.length === 0) {
+            return res.status(404).json({
+                error: "Database not found"
+            });
+        }
         const result = await pool.query(
             'SELECT * FROM backups WHERE database_id = $1 ORDER BY created_at DESC',
             [databaseId]
@@ -156,10 +175,24 @@ router.get('/databases/:id/backups', async (req, res) => {
 //         });
 //     }
 // });
-router.post('/backups/:id/restore', async (req, res) => {
+router.post('/backups/:id/restore', authenticateToken, async (req, res) => {
     const backupId = req.params.id;
     const {targetDatabase} = req.body;
     try {
+        const backupResult = await pool.query(
+            `SELECT backups.id
+            FROM backups
+            JOIN databases
+            ON backups.database_id = databases.id
+            WHERE backups.id = $1
+            AND databases.user_id = $2`,
+            [backupId, req.user.userId]
+        );
+        if (backupResult.rows.length === 0) {
+            return res.status(404).json({
+                error: "Backup not found"
+            });
+        }
         const result = await restoreBackup(backupId, targetDatabase);
         res.status(200).json({
             message: "backup restored successfully",

@@ -1,5 +1,7 @@
 const express = require("express");
 const bcrypt = require("bcrypt");
+const pool = require('../database');
+const jwt = require("jsonwebtoken");
 
 const router = express.Router();
 
@@ -16,7 +18,7 @@ router.post("/login", async (req, res) => {
     try {
         // Find user by email
         const query = `
-            SELECT password_hash
+            SELECT id, password_hash
             FROM users
             WHERE email = $1
         `;
@@ -29,7 +31,6 @@ router.post("/login", async (req, res) => {
                 error: "Invalid email or Password"
             });
         }
-
         const storedHash = result.rows[0].password_hash;
 
         // Compare entered password with stored hash
@@ -44,9 +45,21 @@ router.post("/login", async (req, res) => {
             });
         }
 
+        if (!process.env.JWT_SECRET) {
+            throw new Error("JWT_SECRET is not configured");
+        }
+
+        const token = jwt.sign({
+            userId: result.rows[0].id,
+            email
+        }, process.env.JWT_SECRET, {
+            expiresIn: "1h"
+        });
+
         // Login successful
         return res.status(200).json({
-            message: "Login Successful"
+            message: "Login Successful",
+            token
         });
 
     } catch (err) {

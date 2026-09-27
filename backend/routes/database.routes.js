@@ -1,8 +1,9 @@
 const express = require('express');
 const pool = require('../database');
 const router = express.Router();
+const authenticateToken = require('../middleware/auth.middleware');
 
-router.post('/databases', async (req, res) => {
+router.post('/databases', authenticateToken, async (req, res) => {
 
     const database = req.body;
 
@@ -15,7 +16,7 @@ router.post('/databases', async (req, res) => {
 
     const query = 'INSERT INTO databases (user_id, name, db_type, host, port, database_name, username, password) VALUES($1, $2, $3, $4, $5, $6, $7, $8)';
     const values = [
-        database.user_id,
+        req.user.userId,
         database.name,
         database.db_type,
         database.host,
@@ -41,13 +42,14 @@ router.post('/databases', async (req, res) => {
     }
 });
 
-router.post('/databases/:id/test', async (req, res) => {
+router.post('/databases/:id/test', authenticateToken, async (req, res) => {
     const databaseId = req.params.id;
     try {
         const result = await pool.query(
-            'SELECT * FROM databases WHERE id = $1',
-            [databaseId]
+            'SELECT * FROM databases WHERE id = $1 AND user_id = $2',
+            [databaseId, req.user.userId]
         );
+        
         if (result.rows.length === 0) {
             return res.status(404).json ({
                 error: "Database not found"

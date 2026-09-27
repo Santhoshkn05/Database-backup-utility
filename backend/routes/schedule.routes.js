@@ -2,18 +2,20 @@ const express = require('express');
 const pool = require('../database');
 const router = express.Router();
 const {startSchedule, stopSchedule} = require('../scheduler/backup.scheduler');
+const authenticateToken = require('../middleware/auth.middleware');
+const { schedule } = require('node-cron');
 
-router.post('/databases/:id/schedule', async (req, res) => {
+router.post('/databases/:id/schedule', authenticateToken, async (req, res) => {
     const databaseId = req.params.id;
     const {schedule} = req.body;
 
-    const result = await pool.query(
+    const databaseResult = await pool.query(
         `SELECT id
         FROM databases
-        WHERE id = $1`,
-        [databaseId]
+        WHERE id = $1 AND user_id = $2`,
+        [databaseId, req.user.userId]
     );
-    if (result.rows.length === 0) {
+    if (databaseResult.rows.length === 0) {
         return res.status(404).json({
             error: "Database not found"
         });
@@ -38,9 +40,20 @@ router.post('/databases/:id/schedule', async (req, res) => {
     });
 });
 
-router.get('/databases/:id/schedule', async (req, res) => {
+router.get('/databases/:id/schedule', authenticateToken, async (req, res) => {
     const databaseId = req.params.id;
     try {
+        const databaseResult = await pool.query(
+            `SELECT id
+            FROM databases
+            WHERE id = $1 AND user_id = $2`,
+            [databaseId, req.user.userId]
+        );
+        if (databaseResult.rows.length === 0) {
+            return res.status(404).json({
+                error: "Database not found"
+            });
+        }
         const result = await pool.query(
             `SELECT *
             FROM schedules
@@ -48,6 +61,7 @@ router.get('/databases/:id/schedule', async (req, res) => {
             ORDER BY created_at DESC`,
             [databaseId]
         );
+
         return res.status(200).json(result.rows);
     } catch (error) {
         console.error("failed to fetch schedule: ", error);
@@ -57,7 +71,7 @@ router.get('/databases/:id/schedule', async (req, res) => {
     }
 });
 
-router.put('/schedules/:id', async (req, res) => {
+router.put('/schedules/:id', authenticateToken, async (req, res) => {
     const scheduleId = Number(req.params.id);
     const {schedule} = req.body;
 
@@ -67,6 +81,20 @@ router.put('/schedules/:id', async (req, res) => {
         });
     }
     try {
+        const scheduleOwner = await pool.query(
+            `SELECT schedules.id
+            FROM schedules
+            JOIN databases
+            ON schedules.database_id = databases.id
+            WHERE schedules.id = $1
+            AND databases.user_id = $2`,
+            [scheduleId, req.user.userId]
+        );
+        if (scheduleOwner.rows.length === 0) {
+            return res.status(404).json({
+                error: "Schedules not found"
+            });
+        }
         const result = await pool.query(
             `UPDATE schedules
             SET schedule = $1
@@ -95,7 +123,7 @@ router.put('/schedules/:id', async (req, res) => {
     }
 });
 
-router.patch('/schedules/:id/status', async (req, res) => {
+router.patch('/schedules/:id/status', authenticateToken, async (req, res) => {
     const scheduleId = req.params.id;
     const {is_active} = req.body;
 
@@ -105,6 +133,21 @@ router.patch('/schedules/:id/status', async (req, res) => {
         });
     }
     try {
+        const scheduleOwner = await pool.query(
+            `SELECT schedules.id
+            FROM schedules
+            JOIN databases
+            ON schedules.database_id = databases.id
+            WHERE schedules.id = $1
+            AND databases.user_id = $2`,
+            [scheduleId, req.user.userId]
+        );
+        if (scheduleOwner.rows.length === 0) {
+            return res.status(404).json({
+                error: "Schedule not found"
+            });
+        }
+
         const result = await pool.query(
             `UPDATE schedules
             SET is_active = $1
@@ -129,9 +172,23 @@ router.patch('/schedules/:id/status', async (req, res) => {
     }
 });
 
-router.delete('/schedules/:id', async(req, res) => {
+router.delete('/schedules/:id', authenticateToken, async(req, res) => {
     const scheduleId = Number(req.params.id);
     try {
+        const scheduleOwner = await pool.query(
+            `SELECT schedules.id
+            FROM schedules
+            JOIN databases
+            ON SCHEDULES.DATABASE_ID = DATABASES.ID
+            WHERE schedules.id = $1
+            AND databases.user_id = $2`,
+            [scheduleId, req.user.userId]
+        );
+        if (scheduleOwner.rows.length === 0) {
+            return res.status(404).json({
+                error: "Schedule not found"
+            });
+        }
         const result = await pool.query(
             `DELETE FROM schedules
             WHERE id = $1
