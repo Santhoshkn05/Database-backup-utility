@@ -2,10 +2,17 @@ const express = require('express');
 const pool = require('../database');
 const router = express.Router();
 const authenticateToken = require('../middleware/auth.middleware');
+const databaseSchema = require('../validators/database.validator');
 
 router.post('/databases', authenticateToken, async (req, res) => {
 
-    const database = req.body;
+    const {error, value} = databaseSchema.validate(req.body);
+    if (error) {
+        return res.status(400).json({
+            error: error.details[0].message
+        });
+    }
+    const database = value
 
     if (!database.name) {
         res.status(400).json({
