@@ -45,4 +45,3 @@ module.exports = {
     startSchedule,
     stopSchedule
 };
-startScheduler();

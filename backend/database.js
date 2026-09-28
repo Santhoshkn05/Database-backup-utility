@@ -8,12 +8,5 @@ const pool = new Pool({
     password: process.env.DB_PASSWORD,
     port: process.env.DB_PORT || 5432,
 });
-pool.query("SELECT current_database(), current_user")
-        .then(({rows}) => {
-            console.log("PostgreSQL connection connected ");
-        })
-        .catch(err => {
-            console.error("PostgreSQL connection error:");
-        });
 
 module.exports = pool;

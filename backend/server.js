@@ -3,7 +3,7 @@ const databaseRoutes = require('./routes/database.routes');
 const backupRoutes = require('./routes/backup.routes');
 const logRoutes = require('./routes/log.routes');
 const scheduleRoutes = require('./routes/schedule.routes')
-const startScheduler = require('./scheduler/backup.scheduler');
+const {startScheduler} = require('./scheduler/backup.scheduler');
 const authRoutes = require("./routes/auth.routes");
 const testRoutes = require("./routes/test.routes");
 const errorHandler = require("./middleware/error.middleware");
@@ -23,6 +23,10 @@ app.use(scheduleRoutes);
 app.use("/test", testRoutes);
 app.use(errorHandler);
 
-app.listen(PORT, () => {
-    console.log(`server starts ${PORT}`);
-});
+if (require.main == module) {
+    app.listen(PORT, () => {
+        console.log(`server starts ${PORT}`);
+        startScheduler();
+    });
+}
+module.exports = app;
