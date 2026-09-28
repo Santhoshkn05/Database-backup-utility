@@ -28,7 +28,11 @@ router.get('/databases/:id/logs', authenticateToken, async (req, res) => {
             [databaseId]
         );
 
-        res.status(200).json(result.rows);
+        res.status(200).json({
+            success: true,
+            message: "Logs fetched successfully",
+            data: result.rows
+        });
     } catch (error) {
         console.error("Failed to fetch logs:", error);
 

@@ -37,6 +37,7 @@ router.post('/databases', authenticateToken, async (req, res) => {
         await pool.query(query, values);
 
         res.status(201).json({
+            success: true,
             message: "Database added successfully"
         });
 
@@ -74,6 +75,7 @@ router.post('/databases/:id/test', authenticateToken, async (req, res) => {
         await client.connect();
         await client.end();
         res.status(200).json({
+            success: true,
             message: "Database connection successful"
         });
     } catch (error) {
@@ -91,7 +93,12 @@ router.get('/databases', authenticateToken, async(req, res, next) => {
             FROM databases WHERE user_id = $1 ORDER BY id DESC`,
             [req.user.userId]
         );
-        return res.status(200).json(result.rows);
+        return res.status(200).json({
+            success: true,
+            message: "Databases fetched successfully",
+            data: result.rows
+        });
+
     } catch (error) {
         next(error);
     }

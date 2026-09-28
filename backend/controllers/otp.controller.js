@@ -9,9 +9,6 @@ const transporter = require("../config/mail");
 router.post("/send-otp", authenticateToken, async (req, res) => {
     const userId = req.user.userId;
 
-    console.log("EMAIL_USER:", process.env.SMTP_USER);
-    console.log("EMAIL_PASSWORD exists:", !!process.env.SMTP_PASSWORD);
-
     const userResult = await pool.query(
         `SELECT email
         FROM users
@@ -45,6 +42,7 @@ router.post("/send-otp", authenticateToken, async (req, res) => {
 
         console.log("Generated OTP:", otp);
         return res.status(200).json({
+            success: true,
             message: "OTP generated successfully"
         });
     } catch (error) {

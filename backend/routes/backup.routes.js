@@ -31,8 +31,11 @@ router.post('/databases/:id/backup', authenticateToken, async(req, res) => {
         }
         const result = await createBackup(validDatabaseId);
         res.status(201).json({
-            message: "backup created successsfully",
+            success: true,
+            message: "Backup created successsfully",
+            data: {
             file: result.file
+            }
         });
         
     } catch (error) {
@@ -59,7 +62,12 @@ router.get('/databases/:id/backups', authenticateToken, async (req, res) => {
             'SELECT * FROM backups WHERE database_id = $1 ORDER BY created_at DESC',
             [databaseId]
         );
-        res.status(200).json(result.rows);
+        res.status(200).json({
+            success: true,
+            message: "Backup history fetched successfully",
+            data : result.rows
+        });
+
     } catch (error) {
         console.error(error);
         res.status(500).json({
@@ -214,8 +222,11 @@ router.post('/backups/:id/restore', authenticateToken, async (req, res) => {
         }
         const result = await restoreBackup(backupId, targetDatabase);
         res.status(200).json({
-            message: "backup restored successfully",
+            success: true,
+            message: "Backup restored successfully",
+            data: {
             file: result.restoreFile
+            }
         });
     } catch (error) {
         console.error("Restore failed: ", error);

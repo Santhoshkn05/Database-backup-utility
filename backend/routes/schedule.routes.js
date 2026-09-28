@@ -39,8 +39,9 @@ router.post('/databases/:id/schedule', authenticateToken, async (req, res) => {
     );
     startSchedule(scheduleResult.rows[0]);
     return res.status(201).json({
+        success: true,
         message: "Schedule created successfully",
-        schedule: scheduleResult.rows[0]
+        data: scheduleResult.rows[0]
     });
 });
 
@@ -66,7 +67,11 @@ router.get('/databases/:id/schedule', authenticateToken, async (req, res) => {
             [databaseId]
         );
 
-        return res.status(200).json(result.rows);
+        return res.status(200).json({
+            success: true,
+            message: "Schedules fetched successfully",
+            data: result.rows
+        });
     } catch (error) {
         console.error("failed to fetch schedule: ", error);
         return res.status(500).json({
@@ -116,9 +121,11 @@ router.put('/schedules/:id', authenticateToken, async (req, res) => {
         startSchedule(result.rows[0]);
 
         return res.status(200).json({
+            success: true,
             message: "Schedule updated successfully",
-            schedule: result.rows[0]
+            data: result.rows[0]
         });
+
     } catch (error) {
         console.error("Failed to update schedule: ", error);
         return res.status(500).json({
@@ -166,8 +173,9 @@ router.patch('/schedules/:id/status', authenticateToken, async (req, res) => {
             });
         }
         return res.status(200).json({
+            success: true,
             message: "Schedule status updated successfully",
-            schedule: result.rows[0]
+            data: result.rows[0]
         });
     } catch (error) {
         console.error("Failed to update schedule status: ", error);
@@ -209,8 +217,9 @@ router.delete('/schedules/:id', authenticateToken, async(req, res) => {
         stopSchedule(scheduleId);
 
         return res.status(200).json({
+            success: true,
             message: "Schedule deleted successfully",
-            schedule: result.rows[0]
+            data: result.rows[0]
         });
     } catch (error) {
         console.error("Failed to delete schedule: ", error);

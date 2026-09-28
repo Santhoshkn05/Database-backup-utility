@@ -28,6 +28,7 @@ router.post("/register", async (req, res) => {
 
         // Successful registration
         return res.status(201).json({
+            success: true,
             message: "Registration Successful"
         });
 
