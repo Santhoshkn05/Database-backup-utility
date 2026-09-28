@@ -4,10 +4,18 @@ const router = express.Router();
 const {startSchedule, stopSchedule} = require('../scheduler/backup.scheduler');
 const authenticateToken = require('../middleware/auth.middleware');
 const { schedule } = require('node-cron');
+const scheduleSchema = require('../validators/schedule.validator');
 
 router.post('/databases/:id/schedule', authenticateToken, async (req, res) => {
     const databaseId = req.params.id;
-    const {schedule} = req.body;
+    
+    const {error, value} = scheduleSchema.validate(req.body);
+    if(error) {
+        return res.status(400).json({
+            error: error.details[0].message
+        });
+    }
+    const {schedule} = value;
 
     const databaseResult = await pool.query(
         `SELECT id
@@ -21,11 +29,6 @@ router.post('/databases/:id/schedule', authenticateToken, async (req, res) => {
         });
     }
 
-    if (!schedule) {
-        return res.status(400).json({
-            error: "Schedule is required"
-        });
-    }
     const scheduleResult = await pool.query(
         `INSERT INTO schedules
         (database_id, schedule)
