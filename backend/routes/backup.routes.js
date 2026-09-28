@@ -4,20 +4,31 @@ const router = express.Router();
 const createBackup = require('../services/backup.service');
 const restoreBackup = require('../services/restore.service');
 const authenticateToken = require('../middleware/auth.middleware');
+const idSchema = require('../validators/id.validator');
 
 router.post('/databases/:id/backup', authenticateToken, async(req, res) => {
     const databaseId = req.params.id;
+    const {error,value} = idSchema.validate({
+        id: databaseId
+    });
+    if (error) {
+        return res.status(400).json({
+            error: "Invalid database ID"
+        })
+    }
+    const validDatabaseId = value.id;
+
     try {
         const databaseResult = await pool.query(
             'SELECT id FROM databases WHERE id = $1 AND user_id = $2',
-            [databaseId, req.user.userId]
+            [validDatabaseId, req.user.userId]
         );
         if (databaseResult.rows.length === 0) {
             return res.status(404).json({
                 error: "Database not found"
             });
         }
-        const result = await createBackup(databaseId);
+        const result = await createBackup(validDatabaseId);
         res.status(201).json({
             message: "backup created successsfully",
             file: result.file
