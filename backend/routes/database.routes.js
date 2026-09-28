@@ -84,7 +84,7 @@ router.post('/databases/:id/test', authenticateToken, async (req, res) => {
     }
 }); 
 
-router.get('/databases', authenticateToken, async(req, res) => {
+router.get('/databases', authenticateToken, async(req, res, next) => {
     try {
         const result = await pool.query(
             `SELECT id, name, db_type, host, port, database_name, username
@@ -93,10 +93,7 @@ router.get('/databases', authenticateToken, async(req, res) => {
         );
         return res.status(200).json(result.rows);
     } catch (error) {
-        console.error("Failed to Fetch databases: ", error);
-        return res.status(500).json({
-            error: "Failed to fetch databases"
-        });
+        next(error);
     }
 });
 module.exports = router;

@@ -3,11 +3,11 @@ const zlib = require('zlib');
 const fs = require('fs');
 const path = require('path');
 const {uploadToB2} = require('./b2Storage.service');
-const createLog = require('../utils/log');
 const verifyBackup = require('../utils/verifyBackup');
 const cleanupBackups = require('../utils/cleanupBackups');
 const sendEmail = require('./email.service');
 const adapters = require('../adapters/mapping');
+const createLog = require("./log.service");
 
 const MAX_RETRIES =3;
 
@@ -70,8 +70,7 @@ async function createBackup(databaseId) {
           if (stats.size === 0) {
             throw new Error('Compressed backup file is empty');
           }
-          let cloudStatus = 'uploaded';
-
+          let cloudStatus = 'not_uploaded';
           let cloudRetryCount = 0;
 
           async function uploadWithRetry() {
@@ -103,6 +102,7 @@ async function createBackup(databaseId) {
 
           try {
             await uploadWithRetry();
+            cloudStatus = 'uploaded';
           } catch (error) {
             console.error('B2 upload failed:', error);
 

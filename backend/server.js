@@ -6,6 +6,7 @@ const scheduleRoutes = require('./routes/schedule.routes')
 const startScheduler = require('./scheduler/backup.scheduler');
 const authRoutes = require("./routes/auth.routes");
 const testRoutes = require("./routes/test.routes");
+const errorHandler = require("./middleware/error.middleware");
 const helmet = require("helmet");
 const app = express();
 const PORT = 3000;
@@ -20,6 +21,7 @@ app.use(backupRoutes);
 app.use(logRoutes);
 app.use(scheduleRoutes);
 app.use("/test", testRoutes);
+app.use(errorHandler);
 
 app.listen(PORT, () => {
     console.log(`server starts ${PORT}`);
