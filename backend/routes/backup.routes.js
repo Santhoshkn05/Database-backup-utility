@@ -5,6 +5,7 @@ const createBackup = require('../services/backup.service');
 const restoreBackup = require('../services/restore.service');
 const authenticateToken = require('../middleware/auth.middleware');
 const idSchema = require('../validators/id.validator');
+const restoreSchema = require('../validators/restore.validator');
 
 router.post('/databases/:id/backup', authenticateToken, async(req, res) => {
     const databaseId = req.params.id;
@@ -188,7 +189,14 @@ router.get('/databases/:id/backups', authenticateToken, async (req, res) => {
 // });
 router.post('/backups/:id/restore', authenticateToken, async (req, res) => {
     const backupId = req.params.id;
-    const {targetDatabase} = req.body;
+    const {error, value} = restoreSchema.validate(req.body);
+    if (error) {
+        return res.status(400).json({
+            error: error.details[0].message
+        });
+    }
+    const {targetDatabase} = value;
+    
     try {
         const backupResult = await pool.query(
             `SELECT backups.id
