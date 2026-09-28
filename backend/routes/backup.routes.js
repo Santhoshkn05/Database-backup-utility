@@ -231,7 +231,7 @@ router.post('/backups/:id/restore', authenticateToken, async (req, res) => {
     } catch (error) {
         console.error("Restore failed: ", error);
         res.status(500).json({
-            error: error.message
+            error: "Failed to restore backup"
         });
     }
 });

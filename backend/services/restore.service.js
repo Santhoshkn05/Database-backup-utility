@@ -30,8 +30,7 @@ async function restoreBackup(backupId, targetDatabase) {
         `Restore started for backup ${backup.file_name}`
     );
 
-    console.log("Backup found: ", backup.file_name);
-    console.log("database type: ", database.db_type);
+    console.log("Backup restore started");
 
     const compressedFile = backup.file_name;
     const compressedPath = `backups/${compressedFile}`;
@@ -72,8 +71,8 @@ async function restoreBackup(backupId, targetDatabase) {
             await new Promise((resolve, reject) => {
                 exec(command, {env}, (error, stdout, stderr) => {
                     if (error) {
-                        console.error("PostgreSQL restore failed: ", error);
-                        console.error("STDERR:", stderr);
+                        console.error("PostgreSQL restore failed");
+
                         return reject(new Error("PostgreSQL restore failed"));
                     }
                     console.log("PostgreSQL restore completed successfully");
@@ -91,8 +90,8 @@ async function restoreBackup(backupId, targetDatabase) {
             await new Promise((resolve, reject) => {
                 exec(command, {env}, (error, stdout, stderr) => {
                     if (error) {
-                        console.error("MySQL restore failed: ", error);
-                        console.error("STDERR: ", stderr);
+                        console.error("MySQL restore failed");
+
                         return reject(new Error("MySQL restore failed"));
                     }
                     console.log("MySQL restore completed successfully");

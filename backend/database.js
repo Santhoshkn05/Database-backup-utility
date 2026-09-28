@@ -10,10 +10,10 @@ const pool = new Pool({
 });
 pool.query("SELECT current_database(), current_user")
         .then(({rows}) => {
-            console.log("Connected PostgreSQL context: ", rows[0]);
+            console.log("PostgreSQL connection connected ");
         })
         .catch(err => {
-            console.error("PostgreSQL connection error:", err);
+            console.error("PostgreSQL connection error:");
         });
 
 module.exports = pool;

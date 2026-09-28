@@ -82,8 +82,7 @@ async function createBackup(databaseId) {
               cloudRetryCount++;
 
               console.error(
-                `B2 upload attempt ${cloudRetryCount} failed:`,
-                error.message
+                `B2 upload attempt ${cloudRetryCount} failed`
               );
 
               if (cloudRetryCount < MAX_RETRIES) {
@@ -104,7 +103,7 @@ async function createBackup(databaseId) {
             await uploadWithRetry();
             cloudStatus = 'uploaded';
           } catch (error) {
-            console.error('B2 upload failed:', error);
+            console.error('B2 upload failed');
 
             if (fs.existsSync(compressedPath)) {
                 fs.unlinkSync(compressedPath);
