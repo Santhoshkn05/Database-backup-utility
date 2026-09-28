@@ -1,18 +1,18 @@
 const express = require("express");
 const bcrypt = require("bcrypt");
 const pool = require("../database");
+const registerSchema = require("../validators/register.validator");
 
 const router = express.Router();
 
 router.post("/register", async (req, res) => {
-    const { name, email, password } = req.body;
-
-    // Validate required fields
-    if (!name || !email || !password) {
+    const {error, value} = registerSchema.validate(req.body);
+    if (error) {
         return res.status(400).json({
-            error: "Name, email and password are required"
+            error: error.details[0].message
         });
     }
+    const {name, email, password} = value;
 
     try {
         // Hash password
