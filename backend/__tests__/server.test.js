@@ -482,6 +482,29 @@ test("User should not view another user's schedule", async () => {
     expect(response.statusCode).toBe(404);
 });
 
+test("Authenticated user should fetch schedules", async () => {
+    const token = jwt.sign(
+        {
+            userId: 20,
+            email: "santhoshkn@gmail.com"
+        },
+        process.env.JWT_SECRET,
+        {
+            expiresIn: "1h"
+        }
+    );
+
+    const response = await request(app)
+        .get("/databases/11/schedule")
+        .set("Authorization", `Bearer ${token}`);
+
+    expect(response.statusCode).toBe(200);
+    expect(response.body.success).toBe(true);
+    expect(response.body).toHaveProperty("message");
+    expect(response.body).toHaveProperty("data");
+    expect(Array.isArray(response.body.data)).toBe(true);
+});
+
 test("Authenticated user should fetch logs", async () => {
     const token = jwt.sign(
         {
@@ -544,6 +567,295 @@ test("Authenticated user should create a backup", async () => {
     expect(response.body).toHaveProperty("data");
     expect(response.body.data).toHaveProperty("file");
 }, 30000);
+
+test("Database backup should reject invalid database ID", async () => {
+    const token = jwt.sign(
+        {
+            userId: 20,
+            email: "santhoshkn@gmail.com"
+        },
+        process.env.JWT_SECRET,
+        {
+            expiresIn: "1h"
+        }
+    );
+
+    const response = await request(app)
+        .post("/databases/abc/backup")
+        .set("Authorization", `Bearer ${token}`);
+
+    expect(response.statusCode).toBe(400);
+    expect(response.body).toHaveProperty("error");
+});
+
+test("Restore should reject invalid backup ID", async () => {
+    const token = jwt.sign(
+        {
+            userId: 20,
+            email: "santhoshkn@gmail.com"
+        },
+        process.env.JWT_SECRET,
+        {
+            expiresIn: "1h"
+        }
+    );
+
+    const response = await request(app)
+        .post("/backups/abc/restore")
+        .set("Authorization", `Bearer ${token}`)
+        .send({
+            targetDatabase: "restore_test"
+        });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.body).toHaveProperty("error");
+});
+
+test("Schedule fetch should reject invalid database ID", async () => {
+    const token = jwt.sign(
+        {
+            userId: 20,
+            email: "santhoshkn@gmail.com"
+        },
+        process.env.JWT_SECRET,
+        {
+            expiresIn: "1h"
+        }
+    );
+
+    const response = await request(app)
+        .get("/databases/abc/schedule")
+        .set("Authorization", `Bearer ${token}`);
+
+    expect(response.statusCode).toBe(400);
+    expect(response.body).toHaveProperty("error");
+});
+
+test("Schedule update should reject invalid schedule ID", async () => {
+    const token = jwt.sign(
+        {
+            userId: 20,
+            email: "santhoshkn@gmail.com"
+        },
+        process.env.JWT_SECRET,
+        {
+            expiresIn: "1h"
+        }
+    );
+
+    const response = await request(app)
+        .put("/schedules/abc")
+        .set("Authorization", `Bearer ${token}`)
+        .send({
+            schedule: "0 0 * * *"
+        });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.body).toHaveProperty("error");
+});
+
+test("Schedule status update should reject invalid schedule ID", async () => {
+    const token = jwt.sign(
+        {
+            userId: 20,
+            email: "santhoshkn@gmail.com"
+        },
+        process.env.JWT_SECRET,
+        {
+            expiresIn: "1h"
+        }
+    );
+
+    const response = await request(app)
+        .patch("/schedules/abc/status")
+        .set("Authorization", `Bearer ${token}`)
+        .send({
+            is_active: true
+        });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.body).toHaveProperty("error");
+});
+
+test("Authenticated user should update schedule status", async () => {
+    const token = jwt.sign(
+        {
+            userId: 20,
+            email: "santhoshkn@gmail.com"
+        },
+        process.env.JWT_SECRET,
+        {
+            expiresIn: "1h"
+        }
+    );
+
+    const scheduleResult = await pool.query(
+        `SELECT schedules.id
+         FROM schedules
+         JOIN databases
+         ON schedules.database_id = databases.id
+         WHERE databases.id = 11
+         AND databases.user_id = 20
+         LIMIT 1`
+    );
+
+    const scheduleId = scheduleResult.rows[0].id;
+
+    const response = await request(app)
+        .patch(`/schedules/${scheduleId}/status`)
+        .set("Authorization", `Bearer ${token}`)
+        .send({
+            is_active: false
+        });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.body.success).toBe(true);
+    expect(response.body.message).toBe("Schedule status updated successfully");
+    expect(response.body.data).toHaveProperty("id");
+    expect(response.body.data.is_active).toBe(false);
+});
+
+test("Schedule deletion should reject invalid schedule ID", async () => {
+    const token = jwt.sign(
+        {
+            userId: 20,
+            email: "santhoshkn@gmail.com"
+        },
+        process.env.JWT_SECRET,
+        {
+            expiresIn: "1h"
+        }
+    );
+
+    const response = await request(app)
+        .delete("/schedules/abc")
+        .set("Authorization", `Bearer ${token}`);
+
+    expect(response.statusCode).toBe(400);
+    expect(response.body).toHaveProperty("error");
+});
+
+test("Authenticated user should delete a schedule", async () => {
+    const token = jwt.sign(
+        {
+            userId: 20,
+            email: "santhoshkn@gmail.com"
+        },
+        process.env.JWT_SECRET,
+        {
+            expiresIn: "1h"
+        }
+    );
+
+    const scheduleResult = await pool.query(
+        `SELECT schedules.id
+         FROM schedules
+         JOIN databases
+         ON schedules.database_id = databases.id
+         WHERE databases.id = 11
+         AND databases.user_id = 20
+         LIMIT 1`
+    );
+
+    const scheduleId = scheduleResult.rows[0].id;
+
+    const response = await request(app)
+        .delete(`/schedules/${scheduleId}`)
+        .set("Authorization", `Bearer ${token}`);
+
+    expect(response.statusCode).toBe(200);
+    expect(response.body.success).toBe(true);
+    expect(response.body.message).toBe("Schedule deleted successfully");
+    expect(response.body.data).toHaveProperty("id");
+});
+
+test("User should not delete another user's schedule", async () => {
+    const token = jwt.sign(
+        {
+            userId: 20,
+            email: "santhoshkn@gmail.com"
+        },
+        process.env.JWT_SECRET,
+        {
+            expiresIn: "1h"
+        }
+    );
+
+    const scheduleResult = await pool.query(
+        `SELECT schedules.id
+         FROM schedules
+         JOIN databases
+         ON schedules.database_id = databases.id
+         WHERE databases.user_id != 20
+         LIMIT 1`
+    );
+
+    const scheduleId = scheduleResult.rows[0].id;
+
+    const response = await request(app)
+        .delete(`/schedules/${scheduleId}`)
+        .set("Authorization", `Bearer ${token}`);
+
+    expect(response.statusCode).toBe(404);
+    expect(response.body).toHaveProperty("error");
+});
+
+test("Create database should reject invalid port", async () => {
+    const token = jwt.sign(
+        {
+            userId: 20,
+            email: "santhoshkn@gmail.com"
+        },
+        process.env.JWT_SECRET,
+        {
+            expiresIn: "1h"
+        }
+    );
+
+    const response = await request(app)
+        .post("/databases")
+        .set("Authorization", `Bearer ${token}`)
+        .send({
+            name: "Invalid Port DB",
+            db_type: "postgresql",
+            host: "localhost",
+            port: 70000,
+            database_name: "testdb",
+            username: "postgres",
+            password: "password"
+        });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.body).toHaveProperty("error");
+});
+
+test("Create database should reject missing host", async () => {
+    const token = jwt.sign(
+        {
+            userId: 20,
+            email: "santhoshkn@gmail.com"
+        },
+        process.env.JWT_SECRET,
+        {
+            expiresIn: "1h"
+        }
+    );
+
+    const response = await request(app)
+        .post("/databases")
+        .set("Authorization", `Bearer ${token}`)
+        .send({
+            name: "Missing Host DB",
+            db_type: "postgresql",
+            port: 5432,
+            database_name: "testdb",
+            username: "postgres",
+            password: "password"
+        });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.body).toHaveProperty("error");
+});
 
 afterAll(async () => {
     await pool.end();

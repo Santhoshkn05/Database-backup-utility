@@ -197,6 +197,16 @@ router.get('/databases/:id/backups', authenticateToken, async (req, res) => {
 // });
 router.post('/backups/:id/restore', authenticateToken, async (req, res) => {
     const backupId = req.params.id;
+    const {error: idError, value: idValue} = idSchema.validate({
+        id: backupId
+    });
+    if (idError) {
+        return res.status(400).json({
+            error: "Invalid backup ID"
+        });
+    }
+    const validBackupId = idValue.id;
+
     const {error, value} = restoreSchema.validate(req.body);
     if (error) {
         return res.status(400).json({
@@ -213,14 +223,14 @@ router.post('/backups/:id/restore', authenticateToken, async (req, res) => {
             ON backups.database_id = databases.id
             WHERE backups.id = $1
             AND databases.user_id = $2`,
-            [backupId, req.user.userId]
+            [validBackupId, req.user.userId]
         );
         if (backupResult.rows.length === 0) {
             return res.status(404).json({
                 error: "Backup not found"
             });
         }
-        const result = await restoreBackup(backupId, targetDatabase);
+        const result = await restoreBackup(validBackupId, targetDatabase);
         res.status(200).json({
             success: true,
             message: "Backup restored successfully",

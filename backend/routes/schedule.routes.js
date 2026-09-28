@@ -6,6 +6,7 @@ const authenticateToken = require('../middleware/auth.middleware');
 const { schedule } = require('node-cron');
 const scheduleSchema = require('../validators/schedule.validator');
 const statusSchema = require('../validators/status.validator');
+const idSchema = require("../validators/id.validator");
 
 router.post('/databases/:id/schedule', authenticateToken, async (req, res) => {
     const databaseId = req.params.id;
@@ -47,12 +48,21 @@ router.post('/databases/:id/schedule', authenticateToken, async (req, res) => {
 
 router.get('/databases/:id/schedule', authenticateToken, async (req, res) => {
     const databaseId = req.params.id;
+    const {error: idError, value: idValue} = idSchema.validate({
+        id: databaseId
+    });
+    if (idError) {
+        return res.status(400).json({
+            error: "Invalid database ID"
+        });
+    }
+    const validDatabaseId = idValue.id;
     try {
         const databaseResult = await pool.query(
             `SELECT id
             FROM databases
             WHERE id = $1 AND user_id = $2`,
-            [databaseId, req.user.userId]
+            [validDatabaseId, req.user.userId]
         );
         if (databaseResult.rows.length === 0) {
             return res.status(404).json({
@@ -64,7 +74,7 @@ router.get('/databases/:id/schedule', authenticateToken, async (req, res) => {
             FROM schedules
             WHERE database_id = $1
             ORDER BY created_at DESC`,
-            [databaseId]
+            [validDatabaseId]
         );
 
         return res.status(200).json({
@@ -82,6 +92,15 @@ router.get('/databases/:id/schedule', authenticateToken, async (req, res) => {
 
 router.put('/schedules/:id', authenticateToken, async (req, res) => {
     const scheduleId = Number(req.params.id);
+    const {error: idError, value: idValue} = idSchema.validate({
+        id: scheduleId
+    });
+    if(idError) {
+        return res.status(400).json({
+            error: "Invalid schedule ID"
+        });
+    }
+    const validScheduleId = idValue.id;
     const {schedule} = req.body;
 
     if (!schedule) {
@@ -97,7 +116,7 @@ router.put('/schedules/:id', authenticateToken, async (req, res) => {
             ON schedules.database_id = databases.id
             WHERE schedules.id = $1
             AND databases.user_id = $2`,
-            [scheduleId, req.user.userId]
+            [validScheduleId, req.user.userId]
         );
         if (scheduleOwner.rows.length === 0) {
             return res.status(404).json({
@@ -109,7 +128,7 @@ router.put('/schedules/:id', authenticateToken, async (req, res) => {
             SET schedule = $1
             WHERE id = $2
             RETURNING *`,
-            [schedule, scheduleId]
+            [schedule, validScheduleId]
         );
         if (result.rows.length === 0) {
             return res.status(404).json({
@@ -136,6 +155,15 @@ router.put('/schedules/:id', authenticateToken, async (req, res) => {
 
 router.patch('/schedules/:id/status', authenticateToken, async (req, res) => {
     const scheduleId = req.params.id;
+    const {error: idError, value: idValue} = idSchema.validate({
+        id: scheduleId
+    });
+    if (idError) {
+        return res.status(400).json({
+            error: "Invalid schedule ID"
+        });
+    }
+    const validScheduleId = idValue.id;
     const {error, value} = statusSchema.validate(req.body);
     if (error) {
         return res.status(400).json({
@@ -152,7 +180,7 @@ router.patch('/schedules/:id/status', authenticateToken, async (req, res) => {
             ON schedules.database_id = databases.id
             WHERE schedules.id = $1
             AND databases.user_id = $2`,
-            [scheduleId, req.user.userId]
+            [validScheduleId, req.user.userId]
         );
         if (scheduleOwner.rows.length === 0) {
             return res.status(404).json({
@@ -165,7 +193,7 @@ router.patch('/schedules/:id/status', authenticateToken, async (req, res) => {
             SET is_active = $1
             WHERE id = $2
             RETURNING *`,
-            [is_active, scheduleId]
+            [is_active, validScheduleId]
         );
         if (result.rows.length === 0) {
             return res.status(404).json({
@@ -187,6 +215,15 @@ router.patch('/schedules/:id/status', authenticateToken, async (req, res) => {
 
 router.delete('/schedules/:id', authenticateToken, async(req, res) => {
     const scheduleId = Number(req.params.id);
+    const {error: idError, value: idValue} = idSchema.validate({
+        id: scheduleId
+    });
+    if (idError) {
+        return res.status(400).json({
+            error: "Invalid schedule ID"
+        });
+    }
+    const validScheduleId = idValue.id;
     try {
         const scheduleOwner = await pool.query(
             `SELECT schedules.id
@@ -195,7 +232,7 @@ router.delete('/schedules/:id', authenticateToken, async(req, res) => {
             ON SCHEDULES.DATABASE_ID = DATABASES.ID
             WHERE schedules.id = $1
             AND databases.user_id = $2`,
-            [scheduleId, req.user.userId]
+            [validScheduleId, req.user.userId]
         );
         if (scheduleOwner.rows.length === 0) {
             return res.status(404).json({
@@ -206,7 +243,7 @@ router.delete('/schedules/:id', authenticateToken, async(req, res) => {
             `DELETE FROM schedules
             WHERE id = $1
             RETURNING *`,
-            [scheduleId]
+            [validScheduleId]
         );
         if (result.rows.length === 0) {
             return res.status(404).json ({
@@ -214,7 +251,7 @@ router.delete('/schedules/:id', authenticateToken, async(req, res) => {
             });
         }
 
-        stopSchedule(scheduleId);
+        stopSchedule(validScheduleId);
 
         return res.status(200).json({
             success: true,
@@ -228,4 +265,5 @@ router.delete('/schedules/:id', authenticateToken, async(req, res) => {
         });
     }
 });
+
 module.exports = router;
