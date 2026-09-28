@@ -5,6 +5,7 @@ const {startSchedule, stopSchedule} = require('../scheduler/backup.scheduler');
 const authenticateToken = require('../middleware/auth.middleware');
 const { schedule } = require('node-cron');
 const scheduleSchema = require('../validators/schedule.validator');
+const statusSchema = require('../validators/status.validator');
 
 router.post('/databases/:id/schedule', authenticateToken, async (req, res) => {
     const databaseId = req.params.id;
@@ -128,13 +129,14 @@ router.put('/schedules/:id', authenticateToken, async (req, res) => {
 
 router.patch('/schedules/:id/status', authenticateToken, async (req, res) => {
     const scheduleId = req.params.id;
-    const {is_active} = req.body;
-
-    if (typeof is_active !== 'boolean') {
+    const {error, value} = statusSchema.validate(req.body);
+    if (error) {
         return res.status(400).json({
-            error: "is_active must be true or false"
+            error: error.details[0].message
         });
     }
+    const {is_active} = value;
+    
     try {
         const scheduleOwner = await pool.query(
             `SELECT schedules.id
