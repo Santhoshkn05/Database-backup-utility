@@ -2,18 +2,18 @@ const express = require("express");
 const bcrypt = require("bcrypt");
 const pool = require('../database');
 const jwt = require("jsonwebtoken");
+const loginSchema = require('../validators/login.validator');
 
 const router = express.Router();
 
 router.post("/login", async (req, res) => {
-    const { email, password } = req.body;
-
-    // Validate required fields
-    if (!email || !password) {
+    const {error, value} = loginSchema.validate(req.body);
+    if (error) {
         return res.status(400).json({
-            error: "Email and Password are required to proceed"
+            error: error.details[0].message
         });
     }
+    const {email, password} = value;
 
     try {
         // Find user by email
