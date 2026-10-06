@@ -6,6 +6,7 @@ const restoreBackup = require('../services/restore.service');
 const authenticateToken = require('../middleware/auth.middleware');
 const idSchema = require('../validators/id.validator');
 const restoreSchema = require('../validators/restore.validator');
+const {getBackupObject} = require('../services/b2Storage.service');
 
 router.post('/databases/:id/backup', authenticateToken, async(req, res) => {
     const databaseId = req.params.id;
@@ -34,7 +35,8 @@ router.post('/databases/:id/backup', authenticateToken, async(req, res) => {
             success: true,
             message: "Backup created successsfully",
             data: {
-            file: result.file
+                file: result.file,
+                file_size: result.fileSize
             }
         });
         
@@ -65,7 +67,10 @@ router.get('/databases/:id/backups', authenticateToken, async (req, res) => {
         res.status(200).json({
             success: true,
             message: "Backup history fetched successfully",
-            data : result.rows
+            data: result.rows.map((backup) => ({
+                ...backup,
+                file_size: backup.file_size == null ? null : Number(backup.file_size)
+            }))
         });
 
     } catch (error) {
@@ -73,6 +78,52 @@ router.get('/databases/:id/backups', authenticateToken, async (req, res) => {
         res.status(500).json({
             error: "Failed to fetch backup history"
         });
+    }
+});
+
+router.get('/backups/:id/download', authenticateToken, async (req, res) => {
+    const {error, value} = idSchema.validate({id: req.params.id});
+    if (error) {
+        return res.status(400).json({error: "Invalid backup ID"});
+    }
+
+    try {
+        const result = await pool.query(
+            `SELECT backups.file_name, backups.status
+            FROM backups
+            JOIN databases ON databases.id = backups.database_id
+            WHERE backups.id = $1 AND databases.user_id = $2`,
+            [value.id, req.user.userId]
+        );
+        if (result.rows.length === 0) {
+            return res.status(404).json({error: "Backup not found"});
+        }
+        const backup = result.rows[0];
+        if (backup.status !== 'success') {
+            return res.status(409).json({error: "Only successful backups can be downloaded"});
+        }
+
+        const object = await getBackupObject(backup.file_name);
+        res.setHeader('Content-Type', 'application/gzip');
+        res.setHeader(
+            'Content-Disposition',
+            `attachment; filename*=UTF-8''${encodeURIComponent(backup.file_name)}`
+        );
+        if (object.ContentLength != null) {
+            res.setHeader('Content-Length', object.ContentLength);
+        }
+        object.Body.on('error', (streamError) => {
+            console.error('Backup download stream failed:', streamError);
+            if (!res.headersSent) {
+                res.status(502).json({error: "Failed to download backup"});
+            } else {
+                res.destroy(streamError);
+            }
+        });
+        object.Body.pipe(res);
+    } catch (downloadError) {
+        console.error('Failed to download backup:', downloadError);
+        return res.status(500).json({error: "Failed to download backup"});
     }
 });
 

@@ -3,7 +3,6 @@ const pool = require('../database');
 const router = express.Router();
 const {startSchedule, stopSchedule} = require('../scheduler/backup.scheduler');
 const authenticateToken = require('../middleware/auth.middleware');
-const { schedule } = require('node-cron');
 const scheduleSchema = require('../validators/schedule.validator');
 const statusSchema = require('../validators/status.validator');
 const idSchema = require("../validators/id.validator");
@@ -101,13 +100,13 @@ router.put('/schedules/:id', authenticateToken, async (req, res) => {
         });
     }
     const validScheduleId = idValue.id;
-    const {schedule} = req.body;
-
-    if (!schedule) {
+    const {error, value} = scheduleSchema.validate(req.body);
+    if (error) {
         return res.status(400).json({
-            error: "Schedule is required"
+            error: error.details[0].message
         });
     }
+    const {schedule} = value;
     try {
         const scheduleOwner = await pool.query(
             `SELECT schedules.id
@@ -136,8 +135,10 @@ router.put('/schedules/:id', authenticateToken, async (req, res) => {
             });
         }
 
-        stopSchedule(scheduleId);
-        startSchedule(result.rows[0]);
+        stopSchedule(validScheduleId);
+        if (result.rows[0].is_active) {
+            startSchedule(result.rows[0]);
+        }
 
         return res.status(200).json({
             success: true,
@@ -199,6 +200,11 @@ router.patch('/schedules/:id/status', authenticateToken, async (req, res) => {
             return res.status(404).json({
                 error: "Schedule not found"
             });
+        }
+        if (is_active) {
+            startSchedule(result.rows[0]);
+        } else {
+            stopSchedule(validScheduleId);
         }
         return res.status(200).json({
             success: true,

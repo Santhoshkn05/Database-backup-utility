@@ -37,11 +37,24 @@ Set the values in `backend/.env`:
 | --- | --- |
 | `DB_USER`, `DB_HOST`, `DB_NAME`, `DB_PASSWORD`, `DB_PORT` | PostgreSQL connection used for application data. `DB_PORT` defaults to `5432`. |
 | `B2_ENDPOINT`, `B2_REGION`, `B2_KEY_ID`, `B2_APPLICATION_KEY`, `B2_BUCKET_NAME` | B2 S3-compatible endpoint, credentials, and bucket. |
-| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD` | SMTP server settings. |
-| `NOTIFICATION_EMAIL` | Recipient for backup success/failure notifications. |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD` | SMTP transport for account backup notifications. `SMTP_USER` is also the sender address. |
 | `PORT` | Listed in the sample environment, but the current server ignores it and listens on port `3000`. |
 
-Create the application tables in the PostgreSQL metadata database before starting the API. The only checked-in migration, [`backend/migrations/001_create_databases.sql`](backend/migrations/001_create_databases.sql), creates `databases` and references `users(id)`, so the `users` table must already exist. The application also queries `backups`, `logs`, and `schedules`, which are not created by the checked-in migration. Backup cleanup additionally expects a `retention_count` column on `databases`; add the required tables and column as part of your database provisioning.
+Create the application tables in the PostgreSQL metadata database before starting the API. The first checked-in migration, [`backend/migrations/001_create_databases.sql`](backend/migrations/001_create_databases.sql), creates `databases` and references `users(id)`, so the `users` table must already exist. Apply [`backend/migrations/003_create_schedules.sql`](backend/migrations/003_create_schedules.sql) after `databases` exists; the server loads active schedules during startup and will fail if this table is missing. The application also queries `backups` and `logs`; create those as part of your database provisioning. Backup cleanup additionally expects a `retention_count` column on `databases`.
+
+The backend does not automatically run migrations. From the `backend` directory, apply the schedules migration to your configured metadata database, replacing the placeholders with values from `.env`:
+
+```powershell
+psql -h <DB_HOST> -U <DB_USER> -d <DB_NAME> -f .\migrations\003_create_schedules.sql
+```
+
+After creating the `backups` table with a `file_size` column, apply [`backend/migrations/002_backup_file_size_bytes.sql`](backend/migrations/002_backup_file_size_bytes.sql) to store backup sizes as `BIGINT` byte counts.
+
+Apply [`backend/migrations/004_create_user_settings.sql`](backend/migrations/004_create_user_settings.sql) to add account backup preferences and the `retention_count` column used by backup cleanup:
+
+```powershell
+psql -h <DB_HOST> -U <DB_USER> -d <DB_NAME> -f .\migrations\004_create_user_settings.sql
+```
 
 Start the server with:
 
@@ -49,11 +62,11 @@ Start the server with:
 node server.js
 ```
 
-The API listens on `http://localhost:3000`. There is no `start` script in `package.json`; its current `test` script is a placeholder that exits with an error.
+The API listens on `http://localhost:3000`. There is no `start` script in `package.json`; run it with `node server.js`.
 
 ## API
 
-All routes accept and return JSON where applicable. The server does not configure an authentication middleware.
+Routes accept and return JSON where applicable. Application routes require a bearer token; login and registration are public.
 
 | Method | Path | Purpose |
 | --- | --- | --- |
@@ -68,6 +81,10 @@ All routes accept and return JSON where applicable. The server does not configur
 | `PATCH` | `/schedules/:id/status` | Set its active flag. Body: `{ "is_active": true }`. |
 | `DELETE` | `/schedules/:id` | Delete a schedule. |
 | `GET` | `/databases/:id/logs` | List log records for a database. |
+| `GET` | `/auth/me` | Fetch the authenticated account profile. |
+| `PATCH` | `/auth/me` | Update the authenticated account name and email. |
+| `GET` / `PUT` | `/auth/settings` | Fetch or save notification preferences and default backup retention. |
+| `PUT` | `/auth/password` | Change the authenticated account password using the current password. |
 
 Example database record request:
 
@@ -94,9 +111,7 @@ The API writes temporary SQL and gzip files under `backend/backups/`. It verifie
 ## Current Limitations and Security
 
 - Database credentials are stored in the `databases` table as supplied; the application does not encrypt them.
-- No authentication or authorization is applied to the API routes. Do not expose this service to an untrusted network without adding access controls.
-- `login.js` and `register.js` are not mounted by `server.js`; they are not available as API routes in the running server.
+- Do not expose this service to an untrusted network without HTTPS and secure database credential storage.
 - PostgreSQL dump/restore paths are fixed to a PostgreSQL 14 installation on Windows. Update the service paths for another installation or operating system.
 - MySQL backup and restore invoke local command-line tools, so those tools and appropriate permissions must be installed on the server.
 - Schedule status changes update the database record, but the current status route does not start or stop the in-memory cron job.
-- The email service currently reads `SMTP_user` for the sender address, while `.env.example` defines `SMTP_USER`; check the sender configuration if email delivery fails.

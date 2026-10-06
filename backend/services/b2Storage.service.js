@@ -33,8 +33,35 @@ async function downloadFromB2(fileName, destinationPath) {
     });
     console.log(`Backup downloaded from B2: ${fileName}`);
 }
+
+async function getBackupObject(fileName) {
+    const command = new GetObjectCommand({
+        Bucket: process.env.B2_BUCKET_NAME,
+        Key: fileName
+    });
+    return b2Client.send(command);
+}
+
+async function checkB2Health() {
+    const command = new GetObjectCommand({
+        Bucket: process.env.B2_BUCKET_NAME,
+        Key: "__health_check__"
+    });
+    try {
+        await b2Client.send(command);
+        return true;
+    } catch (error) {
+        if (error.name == "NoSuchKey" || error.$metadata?.httpStatusCode === 404) {
+            return true;
+        }
+        console.error("B2 Health check failed:", error.message);
+        return false;
+    }
+}
 module.exports = {
     b2Client,
     uploadToB2,
-    downloadFromB2
+    downloadFromB2,
+    getBackupObject,
+    checkB2Health
 };

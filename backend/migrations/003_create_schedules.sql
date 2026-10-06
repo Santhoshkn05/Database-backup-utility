@@ -1,0 +1,7 @@
+CREATE TABLE IF NOT EXISTS schedules (
+    id              INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    database_id     INTEGER NOT NULL REFERENCES databases(id) ON DELETE CASCADE,
+    schedule        VARCHAR NOT NULL,
+    is_active       BOOLEAN NOT NULL DEFAULT true,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);

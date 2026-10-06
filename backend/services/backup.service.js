@@ -10,16 +10,28 @@ const adapters = require('../adapters/mapping');
 const createLog = require("./log.service");
 
 const MAX_RETRIES =3;
-
-async function createBackup(databaseId) {
+const activeBackups = new Set();
+ async function createBackup(databaseId) {
   const result = await pool.query(
-    `SELECT * FROM databases WHERE id = $1`,
+    `SELECT databases.*, users.email AS owner_email,
+        COALESCE(user_settings.notify_backup_success, true) AS notify_backup_success,
+        COALESCE(user_settings.notify_backup_failure, true) AS notify_backup_failure
+    FROM databases
+    JOIN users ON users.id = databases.user_id
+    LEFT JOIN user_settings ON user_settings.user_id = databases.user_id
+    WHERE databases.id = $1`,
     [databaseId]
   );
 
   if (result.rows.length === 0) {
-    throw new Error('Database not found');
+    throw new Error('database not found');
   }
+  if (activeBackups.has(databaseId)) {
+    throw new Error(
+      `Backup already running for database ${databaseId}`
+    );
+  }
+  activeBackups.add(databaseId);
 
   const database = result.rows[0];
   const backupDir = path.resolve(process.cwd(), 'backups');
@@ -134,39 +146,48 @@ async function createBackup(databaseId) {
           }
 
           await createLog(database.id, 'backup', 'success', 'Backup completed successfully');
-          await sendEmail(
-            process.env.NOTIFICATION_EMAIL,
-            'Database Backup Successful',
-            `Backup completed successfully.
+          if (database.notify_backup_success) {
+            await sendEmail(
+              database.owner_email,
+              'Database Backup Successful',
+              `Backup completed successfully.
 
 Database: ${database.name}
 Backup file: ${compressedFile}
 File size: ${stats.size} bytes
 Cloud storage: B2
 Status: Success`
-          );
+            );
+          }
+
+          activeBackups.delete(databaseId);
 
           resolve({
             file: compressedFile,
             fileSize: stats.size,
             cloudStatus
           });
+
         } catch (error) {
           console.error('Backup finalization failed:', error);
           await createLog(database.id, 'backup', 'failed', 'Backup verification or save failed');
-          await sendEmail(
-            process.env.NOTIFICATION_EMAIL,
-            `Database backup Failed`,
-            `Backup failed
+          if (database.notify_backup_failure) {
+            await sendEmail(
+              database.owner_email,
+              `Database backup Failed`,
+              `Backup failed
 Database: ${database.name}
 Status: Failed
 Reason: ${error.message}`
-          );
+            );
+          }
           reject(error);
         }
       });
     }
     continueBackup()
+  }).finally(()=> {
+    activeBackups.delete(databaseId);
   });
 }
 

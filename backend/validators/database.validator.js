@@ -8,7 +8,7 @@ const Joi = require("joi");
             .required(),
 
         db_type: Joi.string()
-            .valid("postgresql", "mysql", "mongodb")
+            .valid("PostgreSQL", "MySQL", "MongoDB")
             .required(),
         
         host: Joi.string()

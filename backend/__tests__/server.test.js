@@ -35,6 +35,43 @@ test("Protected route should accept valid token", async () => {
 
     expect(response.statusCode).toBe(200);
 });
+
+test("Settings update should reject an unsupported retention value", async () => {
+    const token = jwt.sign(
+        {userId: 20, email: "santhoshkn@gmail.com"},
+        process.env.JWT_SECRET,
+        {expiresIn: "1h"}
+    );
+
+    const response = await request(app)
+        .put("/auth/settings")
+        .set("Authorization", `Bearer ${token}`)
+        .send({
+            notify_backup_success: true,
+            notify_backup_failure: true,
+            default_retention_count: 13
+        });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.body).toHaveProperty("error");
+});
+
+test("Password update should reject an invalid payload", async () => {
+    const token = jwt.sign(
+        {userId: 20, email: "santhoshkn@gmail.com"},
+        process.env.JWT_SECRET,
+        {expiresIn: "1h"}
+    );
+
+    const response = await request(app)
+        .put("/auth/password")
+        .set("Authorization", `Bearer ${token}`)
+        .send({currentPassword: "old-password", newPassword: "short"});
+
+    expect(response.statusCode).toBe(400);
+    expect(response.body).toHaveProperty("error");
+});
+
 test("Database list should require authentication", async () => {
     const response = await request(app)
         .get("/databases");
@@ -545,6 +582,33 @@ test("Authenticated user should fetch backup history", async () => {
     expect(response.body.success).toBe(true);
 });
 
+test("Backup download should require authentication", async () => {
+    const response = await request(app)
+        .get("/backups/1/download");
+
+    expect(response.statusCode).toBe(401);
+});
+
+test("Backup download should reject an invalid backup ID", async () => {
+    const token = jwt.sign(
+        {
+            userId: 20,
+            email: "santhoshkn@gmail.com"
+        },
+        process.env.JWT_SECRET,
+        {
+            expiresIn: "1h"
+        }
+    );
+
+    const response = await request(app)
+        .get("/backups/abc/download")
+        .set("Authorization", `Bearer ${token}`);
+
+    expect(response.statusCode).toBe(400);
+    expect(response.body).toHaveProperty("error");
+});
+
 test("Authenticated user should create a backup", async () => {
     const token = jwt.sign(
         {
@@ -649,6 +713,27 @@ test("Schedule update should reject invalid schedule ID", async () => {
         .send({
             schedule: "0 0 * * *"
         });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.body).toHaveProperty("error");
+});
+
+test("Schedule update should reject an invalid cron expression", async () => {
+    const token = jwt.sign(
+        {
+            userId: 20,
+            email: "santhoshkn@gmail.com"
+        },
+        process.env.JWT_SECRET,
+        {
+            expiresIn: "1h"
+        }
+    );
+
+    const response = await request(app)
+        .put("/schedules/1")
+        .set("Authorization", `Bearer ${token}`)
+        .send({schedule: "invalid-cron"});
 
     expect(response.statusCode).toBe(400);
     expect(response.body).toHaveProperty("error");

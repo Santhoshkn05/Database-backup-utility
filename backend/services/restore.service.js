@@ -62,7 +62,7 @@ async function restoreBackup(backupId, targetDatabase) {
         );
     }
     if (database.db_type === 'postgresql') {
-            const command = `"C:\\Program Files\\PostgreSQL\\14\\pgAdmin 4\\runtime\\psql.exe" -U ${database.username} -h ${database.host} -p ${database.port} -d restore_test -f "backups/${restoreFile}"`;
+            const command = `"C:\\Program Files\\PostgreSQL\\14\\pgAdmin 4\\runtime\\psql.exe" -U ${database.username} -h ${database.host} -p ${database.port} -d ${targetDatabase} -f "backups/${restoreFile}"`;
 
             const env = {
                 ...process.env,

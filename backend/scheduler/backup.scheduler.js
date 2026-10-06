@@ -27,14 +27,20 @@ function stopSchedule(scheduleId) {
 }
 
 function startSchedule(schedule) {
+    if (schedulesJobs.has(schedule.id)) {
+        const existingJob = schedulesJobs.get(schedule.id);
+        existingJob.stop();
+        schedulesJobs.delete(schedule.id);
+    }
     const job = cron.schedule(schedule.schedule, async () => {
-        console.log(`schedules backup triggered for database ${schedule.database_id}`);
+        console.log(`Schedules backup triggered for databases ${schedule.database_id}`);
         try {
             const result = await createBackup(schedule.database_id);
-            console.log(`Scheduled backup completed: ${result.file}`
-            );
+            console.log(`Scheduled backup completed: ${result.file}`);
         } catch (error) {
-            console.error (`Scheduled backup failed for database ${schedule.database_id}:`, error);
+            console.error(`Schedules backup failed for database ${schedule.database_id}:`,
+                error
+            );
         }
     });
     schedulesJobs.set(schedule.id, job);
